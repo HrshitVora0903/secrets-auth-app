@@ -4,7 +4,8 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
 const encrypt = require("mongoose-encryption");
-const md5= require("md5");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 
@@ -14,13 +15,13 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 mongoose.connect("mongodb://localhost:27017/userDB");
 
-const userSchema = new mongoose.Schema ({
+const userSchema = new mongoose.Schema({
     email: String,
     password: String
 });
 
 
-userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ["password"]});
+userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ["password"] });
 
 const User = new mongoose.model("User", userSchema);
 
@@ -37,34 +38,41 @@ app.get("/register", async function (req, res) {
 });
 
 app.post("/register", async function (req, res) {
-    const newUser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
+
+    bcrypt.hash(req.body.password, saltRounds, async function (err, hash) {
+        const newUser = new User({
+            email: req.body.username,
+            password: hash
+        });
+
+        try {
+            await newUser.save();
+            res.render("secrets");
+        } catch (err) {
+            console.error("Error saving user:", err);
+            res.status(500).send("Registration failed: " + err.message);
+        }
     });
 
-    try {
-        await newUser.save();
-        res.render("secrets");
-    } catch (err) {
-        console.error("Error saving user:", err);
-        res.status(500).send("Registration failed: " + err.message);
-    }
 });
 
-app.post("/login", async function(req,res){
-    const username =req.body.username;
-    const password =md5(req.body.password);
+app.post("/login", async function (req, res) {
+    const username = req.body.username;
+    const password = req.body.password  ;
 
-    try{
-        const foundUser = await User.findOne({email: username});
-        if(foundUser){
-            if(foundUser.password === password){
+    try {
+        const foundUser = await User.findOne({ email: username });
+        if (foundUser) {
+            const match = await bcrypt.compare(password, foundUser.password);
+            if (match) {
                 res.render("secrets");
-            } else{
+            } else {
                 res.send("Incorrect password");
             }
+        } else {
+            res.send("No user found with this mail");
         }
-    } catch(err){
+    } catch (err) {
         console.log(err);
     }
 });
