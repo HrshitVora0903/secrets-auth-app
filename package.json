@@ -15,6 +15,7 @@
     "dotenv": "^17.1.0",
     "ejs": "^3.1.10",
     "express": "^5.1.0",
+    "md5": "^2.3.0",
     "mongoose": "^8.16.2",
     "mongoose-encryption": "^2.1.2"
   }
